@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 from app.database.connection import fees_collection
 from app.schemas.fees_schema import FeeCreate
+from app.schemas.fees_schema import FeeUpdate
 from bson import ObjectId
 from app.schemas.fees_schema import PaymentCreate
 from datetime import date
@@ -14,16 +15,21 @@ router = APIRouter(
 @router.post("/")
 def assign_fee(fee: FeeCreate):
 
-    existing_fee = fees_collection.find_one(
-        {"student_id": fee.student_id}
-    )
+    existing_fee = fees_collection.find_one({
+    "student_id": fee.student_id,
+    "session": fee.session
+})
 
     if existing_fee:
 
         fees_collection.update_one(
-            {"student_id": fee.student_id},
+    {
+        "student_id": fee.student_id,
+        "session": fee.session
+    },
             {
                 "$set": {
+                    "session": fee.session,
                     "fee_amount": fee.fee_amount,
                     "remaining_amount": fee.fee_amount,
                     "due_date": fee.due_date
@@ -39,10 +45,16 @@ def assign_fee(fee: FeeCreate):
         "student_id": fee.student_id,
         "student_name": fee.student_name,
         "class_name": fee.class_name,
+        "session": fee.session,
+
         "fee_amount": fee.fee_amount,
+
         "paid_amount": 0,
+
         "remaining_amount": fee.fee_amount,
+
         "status": "Pending",
+
         "due_date": fee.due_date
     })
 
@@ -133,6 +145,72 @@ def collect_payment(
 
     return {
         "message": "Payment Collected Successfully"
+    }
+@router.put("/{fee_id}")
+def update_fee(
+    fee_id: str,
+   fee: FeeUpdate
+):
+
+    existing_fee = fees_collection.find_one(
+        {"_id": ObjectId(fee_id)}
+    )
+
+    if not existing_fee:
+        return {
+            "message": "Fee record not found"
+        }
+
+    remaining = (
+        fee.fee_amount -
+        existing_fee["paid_amount"]
+    )
+
+    status = (
+        "Paid"
+        if remaining <= 0
+        else "Pending"
+    )
+
+    fees_collection.update_one(
+        {"_id": ObjectId(fee_id)},
+        {
+            "$set": {
+                "fee_amount": fee.fee_amount,
+                "remaining_amount": remaining,
+                "due_date": fee.due_date,
+                "status": status
+            }
+        }
+    )
+
+    return {
+        "message": "Fee Updated Successfully"
+    }
+@router.delete("/{fee_id}")
+def delete_fee(fee_id: str):
+
+    fee = fees_collection.find_one(
+        {"_id": ObjectId(fee_id)}
+    )
+
+    if not fee:
+        return {
+            "message": "Fee not found"
+        }
+
+    fees_collection.delete_one(
+        {"_id": ObjectId(fee_id)}
+    )
+
+    fee_payments_collection.delete_many(
+        {
+            "fee_id": fee_id
+        }
+    )
+
+    return {
+        "message": "Fee Deleted Successfully"
     }
 
 @router.get("/history/{student_id}")

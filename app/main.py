@@ -7,6 +7,7 @@ from app.routes.teachers_routes import router as teacher_router
 from fastapi.middleware.cors import CORSMiddleware
 from app.routes.attendance_routes import router as attendance_router
 from app.routes.fees_routes import router as fees_router
+from app.routes.dashboard_routes import router as dashboard_router
 
 app = FastAPI()
 
@@ -25,6 +26,7 @@ app.include_router(auth_router)
 app.include_router(teacher_router)
 app.include_router(attendance_router)
 app.include_router(fees_router)
+app.include_router(dashboard_router)
 
 @app.get("/")
 def home():
